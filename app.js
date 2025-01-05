@@ -1,15 +1,22 @@
-require('dotenv').config(); // Para carregar as variáveis do .env
+// Importando as dependências
 const express = require('express');
+const path = require('path');
 const puppeteer = require('puppeteer');
+const cors = require('cors'); // Importa o middleware CORS
 const mysql = require('mysql2/promise');
+require('dotenv').config();
 
 // Criando a instância do Express
 const app = express();
+const router = express.Router();
 
 // Conexão com o banco de dados
 const pool = mysql.createPool({
     uri: process.env.DATABASE_URL
 });
+
+// Middleware para servir arquivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Função para salvar resultados no banco de dados
 async function saveResultsToDatabase(results) {
@@ -17,10 +24,20 @@ async function saveResultsToDatabase(results) {
     try {
         for (const card of results) {
             for (const result of card.results) {
-                await connection.execute(`
-                    INSERT INTO ResultadosLoteria (Titulo, Hora, Premio, Resultado, Grupo)
-                    VALUES (?, ?, ?, ?, ?)`, 
-                    [card.title, card.time, result.prize, result.result, result.group]);
+                const [rows] = await connection.execute(`
+                    SELECT COUNT(1) AS Count
+                    FROM ResultadosLoteria
+                    WHERE Titulo = ? AND Hora = ? AND Premio = ?`, 
+                    [card.title, card.time, result.prize]);
+
+                if (rows[0].Count === 0) {
+                    await connection.execute(`
+                        INSERT INTO ResultadosLoteria (Titulo, Hora, Premio, Resultado, Grupo)
+                        VALUES (?, ?, ?, ?, ?)`, 
+                        [card.title, card.time, result.prize, result.result, result.group]);
+                } else {
+                    console.log(`Registro duplicado encontrado: ${card.title}, ${card.time}, ${result.prize}`);
+                }
             }
         }
         console.log("Dados inseridos com sucesso no banco de dados!");
@@ -31,9 +48,10 @@ async function saveResultsToDatabase(results) {
     }
 }
 
-// Função para buscar os resultados via scraping
+// Função para buscar os resultados
 async function searchResults(page, date) {
     console.log(`Buscando resultados para a data: ${date}`);
+    
     await page.evaluate((date) => {
         const dateInput = document.querySelector('.resultados__container-input--date input[type="date"]');
         if (dateInput) {
@@ -44,6 +62,7 @@ async function searchResults(page, date) {
 
     try {
         await page.waitForSelector(".results__card", { timeout: 10000 });
+        console.log("Resultados encontrados!");
         return await page.evaluate(() => {
             const cards = Array.from(document.querySelectorAll(".results__card"));
             return cards.map(card => {
@@ -71,7 +90,7 @@ async function searchResults(page, date) {
         });
     } catch (error) {
         console.log("Nenhum resultado encontrado para esta data.");
-        return null;
+        return [];
     }
 }
 
@@ -84,28 +103,26 @@ async function scrapeWebsite() {
         await page.goto("https://loteriasbr.com/", { waitUntil: "networkidle2" });
 
         let currentDate = new Date();
-        let results = null;
+        let results = [];
 
+        // Tentativa de coleta por 7 dias, caso o resultado não seja encontrado
         for (let i = 0; i < 7; i++) {
             const formattedDate = currentDate.toISOString().split("T")[0];
             results = await searchResults(page, formattedDate);
-            if (results && results.length > 0) {
+            if (results.length > 0) {
                 break;
             }
             currentDate.setDate(currentDate.getDate() - 1);
         }
 
-        if (results && results.length > 0) {
+        if (results.length > 0) {
             console.log("Dados coletados:", results);
             await saveResultsToDatabase(results);
-            return results;
         } else {
             console.log("Nenhum resultado encontrado nos últimos 7 dias.");
-            return [];
         }
     } catch (error) {
         console.error("Erro ao fazer scraping:", error);
-        return [];
     } finally {
         if (browser) {
             await browser.close();
@@ -113,13 +130,58 @@ async function scrapeWebsite() {
     }
 }
 
-// Rota para realizar o scraping e retornar os dados coletados
-app.get('/scrape', async (req, res) => {
+// Função para rodar o scraping periodicamente a cada 15 minutos
+const runScrapingPeriodically = async () => {
+    setInterval(async () => {
+        console.log("Iniciando scraping periodicamente...");
+        await scrapeWebsite();  // Chama a função de scraping
+    }, 15 * 60 * 1000);  // Executa a cada 15 minutos (15 * 60 * 1000ms)
+};
+
+// Iniciar o scraping periodicamente
+runScrapingPeriodically();
+
+// Rota para exibir os resultados
+app.get('/results', async (req, res) => {
+    const connection = await pool.getConnection();
+
     try {
-        const results = await scrapeWebsite();
-        res.json({ success: true, data: results });
+        const [rows] = await connection.execute(`
+            SELECT Titulo, Hora, Premio, Resultado, Grupo, DATE_FORMAT(DataInsercao, '%d/%m/%Y') AS DataInsercao
+            FROM ResultadosLoteria
+            ORDER BY Hora DESC, DataInsercao DESC
+        `);
+
+        const groupedResults = rows.reduce((acc, current) => {
+            const key = `${current.Titulo}-${current.Hora}`;
+            if (!acc[key]) {
+                acc[key] = {
+                    Titulo: current.Titulo,
+                    Hora: current.Hora,
+                    Dia: current.DataInsercao,
+                    Resultados: []
+                };
+            }
+            acc[key].Resultados.push({
+                Premio: current.Premio,
+                Resultado: current.Resultado,
+                Grupo: current.Grupo
+            });
+            return acc;
+        }, {});
+
+        const formattedResults = Object.values(groupedResults).map(card => ({
+            Titulo: card.Titulo,
+            Hora: card.Hora,
+            Dia: card.Dia,
+            Resultados: card.Resultados
+        }));
+
+        res.json(formattedResults);
     } catch (error) {
-        res.status(500).json({ success: false, message: "Erro ao realizar o scraping", error: error.message });
+        res.status(500).json({ message: 'Erro ao recuperar os resultados', error: error.message });
+    } finally {
+        connection.release();
     }
 });
 
