@@ -2,6 +2,7 @@
 const express = require('express');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const cors = require('cors'); // Importa o middleware CORS
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
@@ -14,6 +15,14 @@ const pool = mysql.createPool({
     uri: process.env.DATABASE_URL
 });
 
+// Configura o CORS para permitir requisições da origem do seu frontend
+app.use(cors({
+  origin: 'https://nodejs-production-bba1.up.railway.app', // Substitua pela URL do seu frontend
+  methods: ['GET', 'POST'], // Métodos permitidos
+  allowedHeaders: ['Content-Type', 'Authorization'] // Cabeçalhos permitidos
+}));
+// Middleware para as rotas
+app.use('/', routes);
 // Middleware para servir arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
