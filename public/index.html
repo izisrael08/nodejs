@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resultados</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="results" class="results-container"></div>
+
+  <script>
+    fetch('http://localhost:3000/results')
+  .then(response => response.json())
+  .then(data => {
+    const resultsDiv = document.getElementById('results');
+    
+    // Ordenando os resultados pela chave "Premio"
+    data.forEach(item => {
+      item.Resultados.sort((a, b) => {
+        const premioA = parseInt(a.Premio.replace('°', '')); // Remove o símbolo "°" e converte para inteiro
+        const premioB = parseInt(b.Premio.replace('°', ''));
+        return premioA - premioB;
+      });
+
+      let content = `
+        <div class="result-card">
+          <div class="result-header">
+            <span class="result-time">${item.Hora}</span>
+            <span class="result-title">${item.Titulo}</span>
+            <span class="result-day">${item.Dia}</span>
+          </div>
+          <div class="result-details">
+            <div class="result-prize"><strong>Prêmio</strong></div>
+            <div class="result-result"><strong>Resultado</strong></div>
+            <div class="result-group"><strong>Grupo</strong></div>
+          </div>
+          <div class="result-values">
+            ${item.Resultados.map((resultado) => {
+              // Não adicionar vírgula, apenas retornar a string com os números mantidos na formatação original
+              return `
+                <div class="result-value">
+                  <span class="result-index">${resultado.Premio}</span>           
+                  <span class="result-result-value">${resultado.Resultado}</span>
+                  <span class="result-group-value">${resultado.Grupo}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+      resultsDiv.innerHTML += content;
+    });
+  })
+  .catch(error => {
+    console.error('Erro ao carregar os resultados:', error);
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = `<p>Ocorreu um erro ao carregar os resultados.</p>`;
+  });
+
+  </script>
+</body>
+</html>
