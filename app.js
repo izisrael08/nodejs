@@ -172,13 +172,6 @@ app.get('/results', async (req, res) => {
     }
 });
 
-// Serve o arquivo index.html para a rota principal
-router.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../views/index.html'));
-});
-
-// Exportando o router
-module.exports = router;
 
 //Função para rodar o scraping periodicamente a cada 15 minutos
 const runScrapingPeriodically = async () => {
@@ -204,3 +197,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
+
