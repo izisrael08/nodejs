@@ -1,25 +1,33 @@
 const express = require('express');
-const router = express.Router();
+const path = require('path');
+const puppeteer = require('puppeteer');
+const cors = require('cors');
+const mysql = require('mysql2/promise');
+require('dotenv').config();
 
-// Exemplo de função fictícia para scraping (ajuste com sua lógica)
-async function scrapeWebsite() {
-    return { message: 'Scraping realizado com sucesso!' };
-}
+// Criando a instância do Express
+const app = express();
+const router = require('./routes/index'); // Importando o roteador
 
-// Rota de teste
-router.get('/', (req, res) => {
-    res.send('Servidor está funcionando!');
+// Configuração do banco de dados
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.PORT,
+  connectionLimit: 10,
+  connectTimeout: 10000
 });
 
-// Rota para realizar o scraping
-router.get('/results', async (req, res) => {
-    try {
-        const results = await scrapeWebsite(); // Substitua com sua lógica de scraping
-        res.json({ success: true, data: results });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Erro ao realizar o scraping', error: error.message });
-    }
+// Middleware para servir arquivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Usando as rotas definidas no arquivo router
+app.use('/', router);  // Usando o roteador para todas as requisições
+
+// Iniciar o servidor
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
-
-module.exports = router;
-
