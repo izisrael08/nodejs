@@ -174,19 +174,19 @@ app.get('/results', async (req, res) => {
 
 
 //Função para rodar o scraping periodicamente a cada 15 minutos
-const runScrapingPeriodically = async () => {
-  setInterval(async () => {
-      console.log("Iniciando scraping...");
-      await scrapeWebsite();  // Chama a função de scraping
-  }, 15 * 60 * 1000);  // Executa a cada 15 minutos (15 * 60 * 1000ms)
-};
-// Função para rodar o scraping periodicamente a cada 1 minuto
 // const runScrapingPeriodically = async () => {
 //   setInterval(async () => {
-//       console.log("Iniciando scraping periodicamente...");
+//       console.log("Iniciando scraping...");
 //       await scrapeWebsite();  // Chama a função de scraping
-//   }, 1 * 60 * 1000);  // Executa a cada 1 minuto (1 * 60 * 1000ms)
+//   }, 15 * 60 * 1000);  // Executa a cada 15 minutos (15 * 60 * 1000ms)
 // };
+// Função para rodar o scraping periodicamente a cada 1 minuto
+const runScrapingPeriodically = async () => {
+  setInterval(async () => {
+      console.log("Iniciando scraping periodicamente...");
+      await scrapeWebsite();  // Chama a função de scraping
+  }, 1 * 60 * 1000);  // Executa a cada 1 minuto (1 * 60 * 1000ms)
+};
 
 
 // Iniciar o scraping periodicamente
