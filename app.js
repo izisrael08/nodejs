@@ -144,58 +144,17 @@ async function scrapeWebsite() {
   }
 }
 
-// Função para verificar se o banco de dados está vazio
-async function checkIfDatabaseIsEmpty() {
-  const connection = await pool.getConnection(); // Pega uma conexão do pool
-  try {
-    const [rows] = await connection.execute(`
-      SELECT COUNT(1) AS Count
-      FROM ResultadosLoteria
-    `);
-
-    return rows[0].Count === 0; // Retorna verdadeiro se o banco estiver vazio
-  } catch (error) {
-    console.error("Erro ao verificar dados no banco:", error);
-    return true; // Retorna verdadeiro em caso de erro
-  } finally {
-    connection.release(); // Libera a conexão de volta para o pool
-  }
-}
-
-// Função para rodar o scraper periodicamente a cada 15 minutos
+// Função para rodar o scraper periodicamente a cada 2 minutos
 async function runScraperPeriodically() {
-  console.log("Iniciando verificação de dados no banco...");
-
-  const isDatabaseEmpty = await checkIfDatabaseIsEmpty();
-
-  if (isDatabaseEmpty) {
-    console.log("Banco de dados vazio, iniciando o scraping...");
-    await scrapeWebsite(); // Executa o scraper se o banco estiver vazio
-  } else {
-    console.log("Banco de dados já contém dados, buscando novos dados...");
-    await scrapeWebsite(); // Sempre busca novos dados
-  }
+  console.log("Iniciando o processo de scraping periódico...");
+  await scrapeWebsite(); // Busca novos dados periodicamente
 }
 
-// Função para iniciar o scraper na inicialização
-async function initializeScraper() {
-  const isDatabaseEmpty = await checkIfDatabaseIsEmpty();
-  if (isDatabaseEmpty) {
-    console.log("Banco de dados vazio, iniciando o scraping...");
-    await scrapeWebsite();
-  } else {
-    console.log("Banco de dados contém dados, verificando periodicamente...");
-  }
-}
-
-// Iniciar o scraper na inicialização do servidor
-initializeScraper();
-
-// Configuração para rodar o scraper periodicamente (a cada 15 minutos)
+// Configuração para rodar o scraper periodicamente (a cada 2 minutos)
 setInterval(async () => {
   console.log("Iniciando o processo de scraping periódico...");
   await runScraperPeriodically();
-}, 2 * 60 * 1000); // 15 minutos em milissegundos
+}, 2 * 60 * 1000); // 2 minutos em milissegundos
 
 // Rota para exibir os resultados
 app.get('/results', async (req, res) => {
