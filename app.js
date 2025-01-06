@@ -23,7 +23,8 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.PORT || 3306,
-  connectionLimit: 10 // Timeout de 30 segundos
+  connectionLimit: 10,
+  connectTimeout: 50000 
 });
 
 // Middleware para servir arquivos estáticos (como index.html) da pasta public
@@ -133,7 +134,10 @@ async function scrapeWebsite() {
     }
 
     if (results && results.length > 0) {
-      console.log("Dados coletados:", results);
+      // Dentro do seu código onde você coleta os resultados:
+
+      console.log("Dados coletados:", JSON.stringify(results, null, 2)); // Adiciona a formatação para exibição dos dados
+
       await saveResultsToDatabase(results);
     } else {
       console.log("Nenhum resultado encontrado nos últimos 7 dias.");
