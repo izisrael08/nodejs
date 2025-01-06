@@ -24,7 +24,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.PORT || 3306,
   connectionLimit: 10,
-  connectTimeout: 50000 
+  connectTimeout: 100000 
 });
 
 // Middleware para servir arquivos estáticos (como index.html) da pasta public
@@ -161,7 +161,7 @@ async function runScraperPeriodically() {
 setInterval(async () => {
   console.log("Iniciando o processo de scraping periódico...");
   await runScraperPeriodically();
-}, 2 * 60 * 1000); // 2 minutos em milissegundos
+}, 10 * 60 * 1000); // 2 minutos em milissegundos
 
 // Rota para exibir os resultados
 app.get('/results', async (req, res) => {
