@@ -16,13 +16,16 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.PORT,
-  connectionLimit: 10,  // Tamanho do pool de conexões (opcional)
-  connectTimeout: 10000 // Tempo limite de conexão em milissegundos (10 segundos)
+  port: process.env.PORT || 3306,
+  connectionLimit: 10,  // Tamanho do pool de conexões
+  connectTimeout: 10000 // Tempo limite de conexão em milissegundos
 });
 
 // Middleware para servir arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware CORS
+app.use(cors());
 
 // Função para salvar resultados no banco de dados
 async function saveResultsToDatabase(results) {
@@ -146,6 +149,10 @@ app.get('/results', async (req, res) => {
       ORDER BY Hora DESC, DataInsercao DESC
     `);
 
+    if (rows.length === 0) {
+      console.log('Nenhum resultado encontrado no banco de dados.');
+    }
+
     const groupedResults = rows.reduce((acc, current) => {
       const key = `${current.Titulo}-${current.Hora}`;
       if (!acc[key]) {
@@ -189,6 +196,11 @@ const runScrapingPeriodically = async () => {
 
 // Iniciar o scraping periodicamente
 runScrapingPeriodically();
+
+// Rota inicial para teste
+app.get('/', (req, res) => {
+  res.send('Servidor funcionando corretamente!');
+});
 
 // Iniciar o servidor
 const PORT = process.env.PORT || 3000;
