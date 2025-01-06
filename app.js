@@ -13,8 +13,10 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.PORT || 3306,
-  connectionLimit: 10
+  connectionLimit: 10,
+  connectTimeout: 30000  // Timeout de 30 segundos
 });
+
 
 // Middleware para servir arquivos estáticos (como index.html) da pasta public
 app.use(express.static(path.join(__dirname, 'public')));
