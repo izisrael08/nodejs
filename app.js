@@ -158,7 +158,7 @@ const runScrapingPeriodically = async () => {
   setInterval(async () => {
     console.log("Iniciando scraping periodicamente...");
     await scrapeWebsite();  // Chama a função de scraping
-  }, 15 * 60 * 1000);  // Executa a cada 15 minutos (15 * 60 * 1000ms)
+  }, 1 * 60 * 1000);
 };
 // Iniciar o scraping periodicamente
 runScrapingPeriodically();
