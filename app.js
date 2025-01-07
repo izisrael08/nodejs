@@ -22,7 +22,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.PORT || 3000
+  port: process.env.DB_PORT || 3306 // Adicionando porta do DB como 3306 por padrão
 });
 
 // Middleware para servir arquivos estáticos (como index.html) da pasta public
@@ -132,7 +132,10 @@ async function scrapeWebsite() {
     }
 
     if (results && results.length > 0) {
+      // Dentro do seu código onde você coleta os resultados:
+
       console.log("Dados coletados:", JSON.stringify(results, null, 2)); // Adiciona a formatação para exibição dos dados
+
       await saveResultsToDatabase(results);
     } else {
       console.log("Nenhum resultado encontrado nos últimos 7 dias.");
@@ -152,11 +155,10 @@ async function runScraperPeriodically() {
   await scrapeWebsite(); // Busca novos dados periodicamente
 }
 
-// Configuração para rodar o scraper periodicamente (a cada 2 minutos)
-setInterval(async () => {
-  console.log("Iniciando o processo de scraping periódico...");
-  await runScraperPeriodically();
-}, 1 * 60 * 1000); 
+// Rota para a raiz '/'
+app.get('/', (req, res) => {
+  res.send('Servidor funcionando corretamente!');
+});
 
 // Rota para exibir os resultados
 app.get('/results', async (req, res) => {
@@ -191,3 +193,9 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+// Configuração para rodar o scraper periodicamente (a cada 2 minutos)
+setInterval(async () => {
+  console.log("Iniciando o processo de scraping periódico...");
+  await runScraperPeriodically();
+}, 1 * 60 * 1000); // Roda a cada 1 minuto
