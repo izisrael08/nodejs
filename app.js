@@ -9,7 +9,7 @@ const app = express();
 
 // Configuração de CORS
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || '*', // Permite qualquer origem, ou especifica a URL do front-end se definida nas variáveis de ambiente
+  origin: process.env.FRONTEND_URL || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
@@ -18,35 +18,40 @@ app.use(cors(corsOptions)); // Habilita CORS para todas as rotas
 
 // Conexão com o banco de dados usando as variáveis de ambiente
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306 // Porta padrão do MySQL
+  host: process.env.DB_HOST,  // Usando a variável de ambiente DB_HOST
+  user: process.env.DB_USER,  // Usando a variável de ambiente DB_USER
+  password: process.env.DB_PASSWORD,  // Usando a variável de ambiente DB_PASSWORD
+  database: process.env.DB_NAME,  // Usando a variável de ambiente DB_NAME
+  connectionLimit: 10,  // Número máximo de conexões simultâneas
+  connectTimeout: 30000, // Aumente o timeout para 30 segundos
 });
 
-// Middleware para servir arquivos estáticos (como index.html) da pasta public
-app.use(express.static(path.join(__dirname, 'public')));
+// console.log(process.env.DB_HOST); // Verifique se está carregando corretamente
+
+if (!process.env.DB_HOST) {
+  console.error("Erro: DB_HOST não está definido.");
+  process.exit(1);  // Encerra a aplicação com código de erro
+}
+
+// Flags para evitar múltiplas execuções simultâneas
+let isScraping = false;
+let isLogging = false;
 
 // Função para salvar resultados no banco de dados
 async function saveResultsToDatabase(results) {
-  const connection = await pool.getConnection(); // Pega uma conexão do pool
+  const connection = await pool.getConnection();
   try {
     for (const card of results) {
       for (const result of card.results) {
         const [rows] = await connection.execute(`
           SELECT COUNT(1) AS Count
           FROM ResultadosLoteria
-          WHERE Titulo = ? AND Hora = ? AND Premio = ?`, 
-          [card.title, card.time, result.prize]
-        );
+          WHERE Titulo = ? AND Hora = ? AND Premio = ?`, [card.title, card.time, result.prize]);
 
         if (rows[0].Count === 0) {
           await connection.execute(`
             INSERT INTO ResultadosLoteria (Titulo, Hora, Premio, Resultado, Grupo)
-            VALUES (?, ?, ?, ?, ?)`, 
-            [card.title, card.time, result.prize, result.result, result.group]
-          );
+            VALUES (?, ?, ?, ?, ?)`, [card.title, card.time, result.prize, result.result, result.group]);
         } else {
           console.log(`Registro duplicado encontrado: ${card.title}, ${card.time}, ${result.prize}`);
         }
@@ -114,7 +119,7 @@ async function scrapeWebsite() {
   try {
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] // Flags para rodar em containers no Railway
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
     await page.goto("https://loteriasbr.com/", { waitUntil: "networkidle2" });
@@ -129,7 +134,6 @@ async function scrapeWebsite() {
       if (results && results.length > 0) {
         break; // Sai do loop se encontrar resultados
       }
-      // Ajusta para o dia anterior
       currentDate.setDate(currentDate.getDate() - 1);
     }
 
@@ -148,44 +152,34 @@ async function scrapeWebsite() {
   }
 }
 
-// Função para rodar o scraper periodicamente a cada 2 minutos
+// Função para rodar o scraper periodicamente a cada 1 minuto
 async function runScraperPeriodically() {
+  if (isScraping) {
+    console.log("O processo de scraping já está em andamento. Aguardando...");
+    return; // Não inicia o scraper se já estiver em andamento
+  }
+
+  if (isLogging) {
+    return; // Se já iniciou o log, não faz o log novamente
+  }
+
   console.log("Iniciando o processo de scraping periódico...");
-  await scrapeWebsite(); // Busca novos dados periodicamente
+  isLogging = true; // Marcar que o log foi exibido
+
+  isScraping = true; // Marca como scraping em andamento
+  try {
+    await scrapeWebsite(); // Executa o scraping
+  } catch (error) {
+    console.error("Erro no processo de scraping:", error);
+  } finally {
+    isScraping = false; // Marca como terminado, permitindo nova execução
+    isLogging = false; // Reseta o flag do log
+  }
 }
 
 // Rota para a raiz '/'
 app.get('/', (req, res) => {
   res.send('Servidor funcionando corretamente!');
-});
-
-// Rota para exibir os resultados
-app.get('/results', async (req, res) => {
-  const connection = await pool.getConnection();
-
-  try {
-    const [rows] = await connection.execute(`
-      SELECT Titulo, Hora, Premio, Resultado, Grupo, DATE_FORMAT(DataInsercao, '%d/%m/%Y') AS DataInsercao
-      FROM ResultadosLoteria
-      ORDER BY Hora DESC, DataInsercao DESC
-    `);
-
-    const groupedResults = rows.reduce((acc, current) => {
-      const key = `${current.Titulo}-${current.Hora}`;
-      if (!acc[key]) {
-        acc[key] = { Titulo: current.Titulo, Hora: current.Hora, Dia: current.DataInsercao, Resultados: [] };
-      }
-      acc[key].Resultados.push({ Premio: current.Premio, Resultado: current.Resultado, Grupo: current.Grupo });
-      return acc;
-    }, {});
-
-    res.json(Object.values(groupedResults));
-  } catch (error) {
-    console.error("Erro ao recuperar os resultados", error);
-    res.status(500).json({ message: 'Erro ao recuperar os resultados', error: error.message });
-  } finally {
-    connection.release();
-  }
 });
 
 // Função para iniciar o servidor
@@ -194,8 +188,5 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
 
-// Configuração para rodar o scraper periodicamente (a cada 2 minutos)
-setInterval(async () => {
-  console.log("Iniciando o processo de scraping periódico...");
-  await runScraperPeriodically();
-}, 10 * 60 * 1000); // Roda a cada 1 minuto
+// Configuração para rodar o scraper periodicamente (a cada 1 minuto)
+setInterval(runScraperPeriodically, 1 * 60 * 1000); // Roda a cada 1 minuto
