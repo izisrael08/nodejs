@@ -15,5 +15,9 @@
   "scripts": {
     "start": "node app.js"
   },
-  "keywords": []
+  "keywords": [],
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2"
+  }
 }

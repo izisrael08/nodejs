@@ -22,9 +22,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.PORT || 3306,
-  connectionLimit: 10,
-  connectTimeout: 100000 
+  port: process.env.PORT || 3000
 });
 
 // Middleware para servir arquivos estáticos (como index.html) da pasta public
@@ -134,10 +132,7 @@ async function scrapeWebsite() {
     }
 
     if (results && results.length > 0) {
-      // Dentro do seu código onde você coleta os resultados:
-
       console.log("Dados coletados:", JSON.stringify(results, null, 2)); // Adiciona a formatação para exibição dos dados
-
       await saveResultsToDatabase(results);
     } else {
       console.log("Nenhum resultado encontrado nos últimos 7 dias.");
@@ -161,7 +156,7 @@ async function runScraperPeriodically() {
 setInterval(async () => {
   console.log("Iniciando o processo de scraping periódico...");
   await runScraperPeriodically();
-}, 10 * 60 * 1000); // 2 minutos em milissegundos
+}, 1 * 60 * 1000); 
 
 // Rota para exibir os resultados
 app.get('/results', async (req, res) => {
