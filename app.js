@@ -26,12 +26,7 @@ const pool = mysql.createPool({
   connectTimeout: 30000, // Aumente o timeout para 30 segundos
 });
 
-// console.log(process.env.DB_HOST); // Verifique se está carregando corretamente
 
-if (!process.env.DB_HOST) {
-  console.error("Erro: DB_HOST não está definido.");
-  process.exit(1);  // Encerra a aplicação com código de erro
-}
 
 // Flags para evitar múltiplas execuções simultâneas
 let isScraping = false;
