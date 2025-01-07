@@ -22,7 +22,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306 // Adicionando porta do DB como 3306 por padrão
+  port: process.env.DB_PORT || 3306 // Porta padrão do MySQL
 });
 
 // Middleware para servir arquivos estáticos (como index.html) da pasta public
@@ -37,14 +37,16 @@ async function saveResultsToDatabase(results) {
         const [rows] = await connection.execute(`
           SELECT COUNT(1) AS Count
           FROM ResultadosLoteria
-          WHERE Titulo = ? AND Hora = ? AND Premio = ?
-        `, [card.title, card.time, result.prize]);
+          WHERE Titulo = ? AND Hora = ? AND Premio = ?`, 
+          [card.title, card.time, result.prize]
+        );
 
         if (rows[0].Count === 0) {
           await connection.execute(`
             INSERT INTO ResultadosLoteria (Titulo, Hora, Premio, Resultado, Grupo)
-            VALUES (?, ?, ?, ?, ?)
-          `, [card.title, card.time, result.prize, result.result, result.group]);
+            VALUES (?, ?, ?, ?, ?)`, 
+            [card.title, card.time, result.prize, result.result, result.group]
+          );
         } else {
           console.log(`Registro duplicado encontrado: ${card.title}, ${card.time}, ${result.prize}`);
         }
@@ -112,7 +114,7 @@ async function scrapeWebsite() {
   try {
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'] // Adiciona a flag --no-sandbox
+      args: ['--no-sandbox', '--disable-setuid-sandbox'] // Flags para rodar em containers no Railway
     });
     const page = await browser.newPage();
     await page.goto("https://loteriasbr.com/", { waitUntil: "networkidle2" });
@@ -132,10 +134,7 @@ async function scrapeWebsite() {
     }
 
     if (results && results.length > 0) {
-      // Dentro do seu código onde você coleta os resultados:
-
-      console.log("Dados coletados:", JSON.stringify(results, null, 2)); // Adiciona a formatação para exibição dos dados
-
+      console.log("Dados coletados:", JSON.stringify(results, null, 2));
       await saveResultsToDatabase(results);
     } else {
       console.log("Nenhum resultado encontrado nos últimos 7 dias.");
@@ -182,6 +181,7 @@ app.get('/results', async (req, res) => {
 
     res.json(Object.values(groupedResults));
   } catch (error) {
+    console.error("Erro ao recuperar os resultados", error);
     res.status(500).json({ message: 'Erro ao recuperar os resultados', error: error.message });
   } finally {
     connection.release();
@@ -198,4 +198,4 @@ app.listen(PORT, () => {
 setInterval(async () => {
   console.log("Iniciando o processo de scraping periódico...");
   await runScraperPeriodically();
-}, 1 * 60 * 1000); // Roda a cada 1 minuto
+}, 10 * 60 * 1000); // Roda a cada 1 minuto
